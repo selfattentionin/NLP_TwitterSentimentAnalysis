@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SelfAttention Sentiment Studio</title>
+    <meta name="description" content="Twitter sentiment analysis dashboard with ONNX-powered inference and rich visualizations." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand-wrap">
+          <div class="brand-mark">SA</div>
+          <div>
+            <p class="eyebrow">Sentiment Intelligence</p>
+            <h1>SelfAttention.in</h1>
+          </div>
+        </div>
+        <div class="pill">Project by interns at selfattention.in</div>
+      </header>
+
+      <main class="dashboard">
+        <section class="hero panel glow">
+          <div class="hero-copy">
+            <p class="eyebrow accent">Twitter sentiment analysis</p>
+            <h2>Classify public opinion across positive, neutral, negative, and irrelevant tweets.</h2>
+            <p class="muted">
+              This interactive experience runs an ONNX model trained on social media conversations and visualizes the result in real time.
+            </p>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <span>Dataset</span>
+              <strong>74.7K</strong>
+              <small>social posts</small>
+            </div>
+            <div class="stat-card">
+              <span>Model</span>
+              <strong>ONNX</strong>
+              <small>browser-ready</small>
+            </div>
+            <div class="stat-card">
+              <span>UI</span>
+              <strong>Animated</strong>
+              <small>live dashboard</small>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel controls-panel">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow accent">Live prediction</p>
+              <h3>Analyze a tweet</h3>
+            </div>
+            <button id="demo-btn" class="secondary-btn">Load demo tweet</button>
+          </div>
+
+          <label class="input-label" for="tweet-input">Tweet text</label>
+          <textarea id="tweet-input" rows="5" placeholder="Type a tweet to check its sentiment...">I love this new feature and the product launch was amazing! Great work team.</textarea>
+
+          <div class="action-row">
+            <button id="analyze-btn" class="primary-btn">Predict sentiment</button>
+            <span id="status-badge" class="status-badge idle">Ready</span>
+          </div>
+        </section>
+
+        <section class="results-grid">
+          <article class="panel result-panel">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow accent">Prediction</p>
+                <h3>Current sentiment</h3>
+              </div>
+            </div>
+
+            <div class="sentiment-display">
+              <div class="signal-ring">
+                <div class="signal-core">
+                  <span id="sentiment-label">Positive</span>
+                </div>
+              </div>
+              <div class="score-wrap">
+                <div class="score-header">
+                  <span>Confidence</span>
+                  <strong id="confidence-value">0%</strong>
+                </div>
+                <div class="progress-rail">
+                  <div id="confidence-bar" class="progress-fill"></div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel chart-panel">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow accent">Probability</p>
+                <h3>Class breakdown</h3>
+              </div>
+            </div>
+            <canvas id="sentiment-chart" width="420" height="240"></canvas>
+          </article>
+        </section>
+
+        <section class="panel insights-panel">
+          <div class="section-header compact">
+            <div>
+              <p class="eyebrow accent">Insight engine</p>
+              <h3>Sentiment pulse</h3>
+            </div>
+          </div>
+
+          <div class="pulse-grid">
+            <div class="pulse-card positive">
+              <span class="pulse-tag">Positive</span>
+              <strong id="positive-value">0%</strong>
+            </div>
+            <div class="pulse-card neutral">
+              <span class="pulse-tag">Neutral</span>
+              <strong id="neutral-value">0%</strong>
+            </div>
+            <div class="pulse-card negative">
+              <span class="pulse-tag">Negative</span>
+              <strong id="negative-value">0%</strong>
+            </div>
+            <div class="pulse-card irrelevant">
+              <span class="pulse-tag">Irrelevant</span>
+              <strong id="irrelevant-value">0%</strong>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
