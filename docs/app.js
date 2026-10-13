@@ -156,9 +156,9 @@ async function loadModel() {
     : window.location.href.replace(/index\.html$/, '');
 
   try {
-    const response = await fetch(new URL('model/sentiment_model_meta.json', baseUrl).href);
+    const response = await fetch(new URL('docs/model/sentiment_model_meta.json', baseUrl).href);
     modelMeta = await response.json();
-    modelSession = await ort.InferenceSession.create(new URL('model/sentiment_model.onnx', baseUrl).href);
+    modelSession = await ort.InferenceSession.create(new URL('docs/model/sentiment_model.onnx', baseUrl).href);
     useFallbackModel = false;
     setStatus('success', 'Model ready');
     initChart();
