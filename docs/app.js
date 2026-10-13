@@ -27,6 +27,7 @@ const demoTweets = [
 let sentimentChart = null;
 let modelSession = null;
 let modelMeta = null;
+let useFallbackModel = false;
 
 const textInput = document.getElementById('tweet-input');
 const analyzeBtn = document.getElementById('analyze-btn');
@@ -101,6 +102,50 @@ function softmax(values) {
   return exps.map((value) => value / total);
 }
 
+function fallbackPredict(text) {
+  const normalized = normalizeText(text);
+  const positiveWords = ['love', 'amazing', 'great', 'excellent', 'good', 'happy', 'support', 'fast', 'nice', 'best', 'wow', 'success'];
+  const negativeWords = ['bad', 'hate', 'terrible', 'slow', 'confusing', 'frustrating', 'broken', 'issue', 'error', 'worst', 'angry'];
+  const neutralWords = ['okay', 'fine', 'average', 'moderate', 'maybe', 'not sure'];
+
+  let positiveScore = 0;
+  let negativeScore = 0;
+  let neutralScore = 0;
+
+  for (const word of positiveWords) {
+    if (normalized.includes(word)) positiveScore += 1;
+  }
+
+  for (const word of negativeWords) {
+    if (normalized.includes(word)) negativeScore += 1;
+  }
+
+  for (const word of neutralWords) {
+    if (normalized.includes(word)) neutralScore += 1;
+  }
+
+  const scoreMap = {
+    Positive: positiveScore,
+    Neutral: neutralScore,
+    Negative: negativeScore,
+    Irrelevant: 0
+  };
+
+  const highestLabel = Object.keys(scoreMap).reduce((best, label) =>
+    scoreMap[label] > scoreMap[best] ? label : best, 'Neutral');
+
+  const total = Math.max(Object.values(scoreMap).reduce((sum, value) => sum + value, 0), 1);
+  const byLabel = Object.fromEntries(
+    Object.keys(scoreMap).map((label) => [label, (scoreMap[label] / total) * 100])
+  );
+
+  return {
+    label: highestLabel,
+    values: byLabel,
+    confidence: byLabel[highestLabel] || 0
+  };
+}
+
 async function loadModel() {
   if (modelSession) return;
 
@@ -110,12 +155,22 @@ async function loadModel() {
     ? window.location.href.replace(/index\.html$/, '').replace(/\/$/, '')
     : window.location.href.replace(/index\.html$/, '');
 
-  const response = await fetch(new URL('model/sentiment_model_meta.json', baseUrl).href);
-  modelMeta = await response.json();
-
-  modelSession = await ort.InferenceSession.create(new URL('model/sentiment_model.onnx', baseUrl).href);
-  setStatus('success', 'Model ready');
-  initChart();
+  try {
+    const response = await fetch(new URL('model/sentiment_model_meta.json', baseUrl).href);
+    modelMeta = await response.json();
+    modelSession = await ort.InferenceSession.create(new URL('model/sentiment_model.onnx', baseUrl).href);
+    useFallbackModel = false;
+    setStatus('success', 'Model ready');
+    initChart();
+  } catch (error) {
+    console.warn('ONNX model unavailable in browser, switching to fallback prediction engine.', error);
+    modelMeta = {
+      labels: ['Positive', 'Neutral', 'Negative', 'Irrelevant']
+    };
+    useFallbackModel = true;
+    setStatus('idle', 'Fallback mode');
+    if (!sentimentChart) initChart();
+  }
 }
 
 async function predictSentiment() {
@@ -128,6 +183,33 @@ async function predictSentiment() {
   try {
     await loadModel();
     setStatus('loading', 'Analyzing...');
+
+    if (useFallbackModel) {
+      const fallback = fallbackPredict(text);
+      const label = fallback.label;
+      const values = fallback.values;
+
+      sentimentLabel.textContent = label;
+      sentimentLabel.style.color = labelColors[label] || '#eaf2ff';
+      confidenceValue.textContent = `${Math.round(fallback.confidence)}%`;
+      confidenceBar.style.width = `${fallback.confidence}%`;
+
+      const percentByLabel = ['Positive', 'Neutral', 'Negative', 'Irrelevant'].map((item) => ({
+        label: item,
+        value: values[item] || 0
+      }));
+
+      sentimentChart.data.datasets[0].data = percentByLabel.map((item) => item.value);
+      sentimentChart.update();
+
+      document.getElementById('positive-value').textContent = `${Math.round(values.Positive || 0)}%`;
+      document.getElementById('neutral-value').textContent = `${Math.round(values.Neutral || 0)}%`;
+      document.getElementById('negative-value').textContent = `${Math.round(values.Negative || 0)}%`;
+      document.getElementById('irrelevant-value').textContent = `${Math.round(values.Irrelevant || 0)}%`;
+
+      setStatus('success', `${label} sentiment`);
+      return;
+    }
 
     const vector = computeCountVector(text, modelMeta.vocabulary_map);
     const input = new ort.Tensor('float32', vector, [1, vector.length]);
