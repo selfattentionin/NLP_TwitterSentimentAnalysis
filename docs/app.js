@@ -1,11 +1,21 @@
-const orderedLabels = ['Positive', 'Neutral', 'Negative', 'Irrelevant'];
-
 const labelColors = {
   Positive: '#3fe5b3',
   Neutral: '#8fd3ff',
   Negative: '#ff6a7d',
   Irrelevant: '#9ea7c3'
 };
+
+function flattenNumericArray(value) {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value.flatMap((item) => flattenNumericArray(item));
+  if (value instanceof Float32Array || value instanceof Float64Array || value instanceof Int32Array || value instanceof Uint8Array) {
+    return Array.from(value);
+  }
+  if (value.data && typeof value.data !== 'string') {
+    return Array.from(value.data).flatMap((item) => flattenNumericArray(item));
+  }
+  return [Number(value)];
+}
 
 const demoTweets = [
   'I love this new feature and the product launch was amazing! Great work team.',
@@ -36,7 +46,7 @@ function initChart() {
   sentimentChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: orderedLabels,
+      labels: ['Positive', 'Neutral', 'Negative', 'Irrelevant'],
       datasets: [{
         data: [25, 25, 25, 25],
         backgroundColor: ['#3fe5b3', '#8fd3ff', '#ff6a7d', '#9ea7c3'],
@@ -126,22 +136,24 @@ async function predictSentiment() {
     const rawLabel = outputs[0]?.data ? outputs[0].data : outputs[0] || [];
     const rawProbabilities = outputs[1]?.data ? outputs[1].data : outputs[1] || [];
 
-    const probabilities = Array.from(rawProbabilities).flat();
-    const predictedLabel = Array.isArray(rawLabel) ? rawLabel[0] : String(rawLabel || modelMeta.labels[0]);
+    const labelValue = Array.isArray(rawLabel) ? rawLabel[0] : String(rawLabel || modelMeta.labels[0]);
+    const probabilities = flattenNumericArray(rawProbabilities);
+    const safeProbabilities = probabilities
+      .slice(0, modelMeta.labels.length)
+      .map((value) => Number.isFinite(Number(value)) ? Number(value) : 0);
 
-    const probabilityMap = new Map(modelMeta.labels.map((label, idx) => [label, probabilities[idx] ?? 0]));
-    const confidence = Math.max(...probabilities, 0) * 100;
-    const labelIndex = modelMeta.labels.indexOf(predictedLabel);
-    const finalLabel = labelIndex >= 0 ? predictedLabel : modelMeta.labels[probabilities.indexOf(Math.max(...probabilities, 0))];
+    const predictedIndex = safeProbabilities.indexOf(Math.max(...safeProbabilities, 0));
+    const predictedLabel = modelMeta.labels[predictedIndex] || String(labelValue || 'Neutral');
+    const confidence = Math.max(...safeProbabilities, 0) * 100;
 
-    sentimentLabel.textContent = finalLabel;
-    sentimentLabel.style.color = labelColors[finalLabel] || '#eaf2ff';
+    sentimentLabel.textContent = predictedLabel;
+    sentimentLabel.style.color = labelColors[predictedLabel] || '#eaf2ff';
     confidenceValue.textContent = `${confidence.toFixed(0)}%`;
     confidenceBar.style.width = `${confidence}%`;
 
-    const percentByLabel = orderedLabels.map((label) => ({
+    const percentByLabel = modelMeta.labels.map((label, index) => ({
       label,
-      value: (probabilityMap.get(label) ?? 0) * 100
+      value: (safeProbabilities[index] ?? 0) * 100
     }));
 
     sentimentChart.data.datasets[0].data = percentByLabel.map((item) => item.value);
@@ -152,9 +164,9 @@ async function predictSentiment() {
     document.getElementById('negative-value').textContent = `${(percentByLabel.find((item) => item.label === 'Negative')?.value || 0).toFixed(0)}%`;
     document.getElementById('irrelevant-value').textContent = `${(percentByLabel.find((item) => item.label === 'Irrelevant')?.value || 0).toFixed(0)}%`;
 
-    setStatus('success', `${finalLabel} sentiment`);
+    setStatus('success', `${predictedLabel} sentiment`);
   } catch (error) {
-    console.error('ONNX inference failed:', error);
+    console.error('ONNX inference failed:', error?.message || error);
     setStatus('idle', 'Model error');
     sentimentLabel.textContent = 'Error';
     sentimentLabel.style.color = '#ff6a7d';
